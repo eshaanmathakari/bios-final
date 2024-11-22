@@ -8,8 +8,8 @@
     <p><strong>Predicted Class:</strong> {{ predicted_label }}</p>
     <p><strong>Confidence Scores:</strong></p>
     <ul>
-        {% for idx, score in enumerate(confidence_scores) %}
-            <li>{{ class_labels[idx] }}: {{ '%.4f' % score }}</li>
+        {% for score in confidence_scores %}
+            <li>{{ class_labels[loop.index0] }}: {{ '%.4f' % score }}</li>
         {% endfor %}
     </ul>
     <img src="{{ url_for('static', filename='uploads/' + image) }}" alt="Uploaded Image" width="300"><br><br>
