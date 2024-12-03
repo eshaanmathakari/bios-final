@@ -1,9 +1,9 @@
 import os
 import shutil
-import numpy as np
 import tensorflow as tf
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau
+import random
 
 # Constants
 IMG_HEIGHT, IMG_WIDTH = 224, 224
@@ -12,7 +12,20 @@ CLASS_LABELS = ['Normal', 'Pneumonia-Bacterial', 'Pneumonia-Viral', 'COVID-19']
 FEEDBACK_DIR = 'feedback_data'
 MODEL_PATH = 'pneumonia_classifier_final.keras'
 UPDATED_MODEL_PATH = 'pneumonia_classifier_updated.keras'
-RETRAIN_THRESHOLD = 2  # Set to 2 for testing
+TRAIN_DIR = 'train_data'  # Directory containing the original training data
+RETRAIN_THRESHOLD = 5  # Set to 5 as per your requirement
+SUBSET_SIZE_PER_CLASS = 100  # Number of images per class from the old data to use
+
+def count_feedback_images():
+    total = 0
+    for cls in CLASS_LABELS:
+        class_dir = os.path.join(FEEDBACK_DIR, cls)
+        if os.path.exists(class_dir):
+            total += len([
+                file for file in os.listdir(class_dir)
+                if file.lower().endswith(('.jpg', '.jpeg', '.png'))
+            ])
+    return total
 
 def retrain_model():
     print("Starting retraining with feedback data...")
@@ -28,14 +41,46 @@ def retrain_model():
         os.makedirs(class_dir, exist_ok=True)
 
     # Count total feedback images
-    total_feedback_images = sum(
-        len(files) for _, _, files in os.walk(FEEDBACK_DIR) if files
-    )
+    total_feedback_images = count_feedback_images()
     print(f"Total feedback images: {total_feedback_images}")
 
     if total_feedback_images < RETRAIN_THRESHOLD:
         print(f"Not enough feedback data for retraining (Threshold: {RETRAIN_THRESHOLD}). Retraining aborted.")
         return
+
+    # Prepare augmented training directory
+    AUGMENTED_TRAIN_DIR = 'augmented_train_data'
+    if os.path.exists(AUGMENTED_TRAIN_DIR):
+        shutil.rmtree(AUGMENTED_TRAIN_DIR)
+    os.makedirs(AUGMENTED_TRAIN_DIR, exist_ok=True)
+
+    # Copy feedback data into augmented training directory
+    for cls in CLASS_LABELS:
+        feedback_class_dir = os.path.join(FEEDBACK_DIR, cls)
+        augmented_class_dir = os.path.join(AUGMENTED_TRAIN_DIR, cls)
+        os.makedirs(augmented_class_dir, exist_ok=True)
+
+        # Copy feedback images
+        if os.path.exists(feedback_class_dir):
+            for img_name in os.listdir(feedback_class_dir):
+                src_path = os.path.join(feedback_class_dir, img_name)
+                dest_path = os.path.join(augmented_class_dir, img_name)
+                shutil.copy(src_path, dest_path)
+            print(f"Feedback data for class '{cls}' added to augmented training data.")
+
+        # Add a subset of old training data
+        original_class_dir = os.path.join(TRAIN_DIR, cls)
+        if os.path.exists(original_class_dir):
+            all_images = [
+                img for img in os.listdir(original_class_dir)
+                if img.lower().endswith(('.jpg', '.jpeg', '.png'))
+            ]
+            subset_images = random.sample(all_images, min(SUBSET_SIZE_PER_CLASS, len(all_images)))
+            for img_name in subset_images:
+                src_path = os.path.join(original_class_dir, img_name)
+                dest_path = os.path.join(augmented_class_dir, img_name)
+                shutil.copy(src_path, dest_path)
+            print(f"Subset of original data for class '{cls}' added to augmented training data.")
 
     # Data augmentation with validation split
     datagen = ImageDataGenerator(
@@ -51,7 +96,7 @@ def retrain_model():
     )
 
     train_generator = datagen.flow_from_directory(
-        FEEDBACK_DIR,
+        AUGMENTED_TRAIN_DIR,
         target_size=(IMG_HEIGHT, IMG_WIDTH),
         batch_size=BATCH_SIZE,
         class_mode='categorical',
@@ -60,18 +105,13 @@ def retrain_model():
     )
 
     validation_generator = datagen.flow_from_directory(
-        FEEDBACK_DIR,
+        AUGMENTED_TRAIN_DIR,
         target_size=(IMG_HEIGHT, IMG_WIDTH),
         batch_size=BATCH_SIZE,
         class_mode='categorical',
         subset='validation',
         shuffle=True
     )
-
-    # Check if there are enough samples for training
-    if train_generator.samples < 1 or validation_generator.samples < 1:
-        print("Not enough feedback data for retraining. Retraining aborted.")
-        return
 
     # Load the existing model
     try:
@@ -133,14 +173,5 @@ def retrain_model():
     os.makedirs(FEEDBACK_DIR, exist_ok=True)
     print("Feedback data cleared after retraining.")
 
-# Function to count feedback images
-def count_feedback_images():
-    total = 0
-    for cls in CLASS_LABELS:
-        class_dir = os.path.join(FEEDBACK_DIR, cls)
-        if os.path.exists(class_dir):
-            total += len([
-                file for file in os.listdir(class_dir)
-                if file.lower().endswith(('.jpg', '.jpeg', '.png'))
-            ])
-    return total
+    # Clean up augmented training data
+    shutil.rmtree(AUGMENTED_TRAIN_DIR)
