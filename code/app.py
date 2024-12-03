@@ -235,160 +235,142 @@ import os
 from datetime import datetime
 import json
 import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
-import openai
-from sklearn.metrics import confusion_matrix, roc_curve, auc
-from sklearn.preprocessing import label_binarize
 import base64
-import subprocess  # For running retraining.py
+import threading  # For asynchronous retraining
+from retraining import retrain_model  # Import the retraining logic
+import openai
+from retraining import retrain_model, count_feedback_images
+import threading
 
-# Set page configuration (must be first Streamlit command)
+
+
+st.cache_resource.clear()
+st.cache_data.clear()
+
+# Set page configuration
 st.set_page_config(page_title="PneumoScan", page_icon="🩺")
 
-# Set your OpenAI API key
-openai.api_key = os.getenv("OPENAI_API_KEY")  # Ensure this environment variable is set
-
-# Function to set the background image with reduced opacity
-def set_background(image_path, opacity=0.5):
-    with open(image_path, "rb") as file:
-        encoded_string = base64.b64encode(file.read()).decode("utf-8")
-    st.markdown(
-        f"""
-        <style>
-        .stApp {{
-            background: linear-gradient(rgba(255, 255, 255, {opacity}), rgba(255, 255, 255, {opacity})), 
-                        url('data:image/png;base64,{encoded_string}');
-            background-size: cover;
-            background-repeat: no-repeat;
-            background-attachment: fixed;
-        }}
-        </style>
-        """,
-        unsafe_allow_html=True
-    )
-
-# Call the function with the relative path to your image
-set_background("header_image.png", opacity=0.5)
-
-# Define constants
+# Constants
 CLASS_LABELS = ['Normal', 'Pneumonia-Bacterial', 'Pneumonia-Viral', 'COVID-19']
 IMG_HEIGHT, IMG_WIDTH = 224, 224
+FEEDBACK_DIR = 'feedback_data'
+RETRAIN_THRESHOLD = 3  # Set to 3 for testing, adjust as needed
 
-# Load the model once
-model = tf.keras.models.load_model('pneumonia_classifier_final.keras')
+# Set OpenAI API key
+openai.api_key = os.getenv("OPENAI_API_KEY")  # Ensure this environment variable is set
 
-# Create tabs
+# Function to set background
+def set_background(image_path, opacity=0.5):
+    if os.path.exists(image_path):
+        with open(image_path, "rb") as file:
+            encoded_string = base64.b64encode(file.read()).decode("utf-8")
+        st.markdown(
+            f"""
+            <style>
+            .stApp {{
+                background: linear-gradient(rgba(255, 255, 255, {opacity}), rgba(255, 255, 255, {opacity})), 
+                            url('data:image/png;base64,{encoded_string}');
+                background-size: cover;
+                background-repeat: no-repeat;
+                background-attachment: fixed;
+            }}
+            </style>
+            """,
+            unsafe_allow_html=True
+        )
+
+# Call the background setup
+set_background("header_image.png", opacity=0.5)
+
+# Load the model
+try:
+    model = tf.keras.models.load_model('pneumonia_classifier_final.keras')
+    st.write("Model loaded successfully.")
+except Exception as e:
+    st.error(f"Error loading model: {e}")
+    st.stop()
+
+# Count feedback images
+def count_feedback_images():
+    total = 0
+    for cls in CLASS_LABELS:
+        class_dir = os.path.join(FEEDBACK_DIR, cls)
+        if os.path.exists(class_dir):
+            total += len(os.listdir(class_dir))
+    return total
+
+# Asynchronous retraining
+def start_retraining():
+    st.write("Starting retraining in the background...")
+    threading.Thread(target=retrain_model).start()
+
+# Tabs for the app
 tab1, tab2, tab3 = st.tabs(["Home", "Results", "Chatbot"])
 
-# Tab 1: Home (Image Upload and Prediction)
+# Tab 1: Home
 with tab1:
-    # Custom CSS for black text color
-    st.markdown(
-        """
-        <style>
-        .black-text {
-            color: black;
-            font-size: 20px;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True
-    )
-
-    # Applying the custom style to text
-    st.markdown('<h1 class="black-text">Pneumonia Detection</h1>', unsafe_allow_html=True)
-    st.markdown('<p class="black-text">This application is designed to assist in detecting pneumonia from medical imaging data.</p>', unsafe_allow_html=True)
-
-    st.markdown('<h2 class="black-text">Upload an Image</h2>', unsafe_allow_html=True)
+    st.markdown('<h1 style="color:black;">Pneumonia Detection</h1>', unsafe_allow_html=True)
+    st.markdown('<p style="color:black;">This application assists in detecting pneumonia from medical imaging data.</p>', unsafe_allow_html=True)
+    
+    # Upload Section
     uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"])
-
-    if uploaded_file is not None:
-        # Save the uploaded file to a temporary directory
+    if uploaded_file:
+        # Save uploaded file
         temp_dir = 'temp_uploads'
         os.makedirs(temp_dir, exist_ok=True)
-        temp_file_path = os.path.join(temp_dir, uploaded_file.name)
-        with open(temp_file_path, 'wb') as f:
+        temp_path = os.path.join(temp_dir, uploaded_file.name)
+        with open(temp_path, 'wb') as f:
             f.write(uploaded_file.getbuffer())
-
-        # Load the image
-        image = Image.open(temp_file_path)
-        st.image(image, caption='Uploaded Image', use_column_width=True)
-
-        # Preprocess the image
-        img = image.resize((IMG_WIDTH, IMG_HEIGHT))
-        img = img.convert('RGB')  # Ensure image has 3 color channels
-        img_array = np.array(img) / 255.0  # Normalize the image
+        
+        # Load and preprocess the image
+        image = Image.open(temp_path).convert('RGB').resize((IMG_WIDTH, IMG_HEIGHT))
+        img_array = np.array(image) / 255.0
         img_array = np.expand_dims(img_array, axis=0)
 
-        # Make a prediction
+        # Predict using the model
         predictions = model.predict(img_array)
         predicted_class = np.argmax(predictions, axis=1)
         predicted_label = CLASS_LABELS[predicted_class[0]]
         confidence_scores = predictions[0]
 
-        # Display the prediction results
+        # Display the image and results
+        st.image(image, caption='Uploaded Image', use_column_width=True)
         st.write(f"**Predicted Class:** {predicted_label}")
-        st.write("**Confidence Scores:**")
         for idx, score in enumerate(confidence_scores):
             st.write(f"{CLASS_LABELS[idx]}: {score:.4f}")
 
-        # Feedback section
+        # Feedback Section
+       # Feedback Section
         st.write("### Is the prediction incorrect? Please provide the correct label:")
         correct_label = st.selectbox("Select the correct label:", CLASS_LABELS)
         submit_feedback = st.button("Submit Feedback")
 
         if submit_feedback:
-            # Save the feedback
+            # Save feedback
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            feedback_dir = 'feedback_data'
-            os.makedirs(feedback_dir, exist_ok=True)
-            feedback_data = {
-                'timestamp': timestamp,
-                'original_filename': uploaded_file.name,
-                'predicted_label': predicted_label,
-                'correct_label': correct_label,
-                'confidence_scores': confidence_scores.tolist()
-            }
-            # Save the image and feedback
-            feedback_image_dir = os.path.join(feedback_dir, correct_label)
-            os.makedirs(feedback_image_dir, exist_ok=True)
-            feedback_image_path = os.path.join(feedback_image_dir, f"{timestamp}_{uploaded_file.name}")
-            image.save(feedback_image_path)
-            feedback_json_path = os.path.join(feedback_dir, f"{timestamp}_{uploaded_file.name}.json")
-            with open(feedback_json_path, 'w') as f:
-                json.dump(feedback_data, f)
-            st.write("Thank you for your feedback!")
+            feedback_class_dir = os.path.join(FEEDBACK_DIR, correct_label)
+            os.makedirs(feedback_class_dir, exist_ok=True)
+            feedback_path = os.path.join(feedback_class_dir, f"{timestamp}_{uploaded_file.name}")
+            image.save(feedback_path)
+            st.write("Feedback submitted successfully.")
 
-            # Count the number of feedback entries
-            feedback_count = sum([len(files) for r, d, files in os.walk(feedback_dir)])
-            st.write(f"Feedback entries received: {feedback_count}")
+            # Check feedback count
+            feedback_count = count_feedback_images()
+            st.write(f"Total feedback entries: {feedback_count}")
 
-            # Trigger retraining if 10 feedback entries are collected
-            if feedback_count >= 10:
-                st.write("Retraining the model with new feedback data...")
-                # Run retraining.py
-                result = subprocess.run(['python', 'retraining.py'], capture_output=True, text=True)
-                if result.returncode == 0:
-                    st.write("Model retrained successfully.")
-                    # Reload the updated model
-                    model = tf.keras.models.load_model('pneumonia_classifier_updated.keras')
-                    st.write("Updated model loaded.")
-                    # Clear feedback data
-                    shutil.rmtree(feedback_dir)
-                    st.write("Feedback data cleared.")
-                else:
-                    st.write("Error during retraining:")
-                    st.write(result.stderr)
+            if feedback_count >= RETRAIN_THRESHOLD:
+                st.write("Retraining the model with feedback data...")
+                # Run retraining in a separate thread to avoid blocking the UI
+                threading.Thread(target=retrain_model).start()
+                st.write("Retraining started in the background.")
+            else:
+                st.write(f"Need at least {RETRAIN_THRESHOLD} feedback images to retrain the model.")
 
-        # Clean up the temporary file
-        os.remove(temp_file_path)
 
-# Tab 2: Results (Confidence Scores and Visualization)
+# Tab 2: Results
 with tab2:
     st.header("Prediction Results")
-    if uploaded_file is not None:
-        # Display confidence scores as a bar chart
+    if uploaded_file:
         confidence_df = pd.DataFrame({
             'Class': CLASS_LABELS,
             'Confidence': confidence_scores
@@ -398,42 +380,32 @@ with tab2:
         st.write("Please upload an image to see prediction results.")
 
 # Tab 3: Chatbot
-# Define the FAQ chatbot function
 def chatbot_response(user_input):
     faq = {
         'What does my result mean?': 'Your result indicates the model\'s prediction based on the uploaded image.',
         'How accurate is the model?': 'The model has an accuracy of XX% on the test dataset.',
         'What should I do next?': 'Please consult a medical professional for further advice.',
-        # Add more FAQs as needed
     }
     return faq.get(user_input.strip(), 'I\'m sorry, I do not have an answer to that question.')
 
-# Define the GPT-3 chatbot function
 def gpt_chatbot(user_input):
     try:
         response = openai.Completion.create(
             engine='text-davinci-003',
             prompt=f"You are a helpful assistant specialized in medical imaging. {user_input}",
             max_tokens=150,
-            n=1,
-            stop=None,
-            temperature=0.7,
+            temperature=0.7
         )
         return response.choices[0].text.strip()
-    except Exception as e:
+    except Exception:
         return "Sorry, I am unable to process your request at the moment."
 
-# Create the tab for the chatbot in Streamlit
 with tab3:
     st.header("Chat with PneumoBot")
-
-    # Option to select chatbot type
     chatbot_type = st.radio("Choose a chatbot:", ("FAQ Bot", "GPT-3 Bot"))
-
     user_input = st.text_input("Ask a question:")
     if user_input:
         if chatbot_type == "FAQ Bot":
-            response = chatbot_response(user_input)
+            st.write(f"PneumoBot: {chatbot_response(user_input)}")
         else:
-            response = gpt_chatbot(user_input)
-        st.write(f"PneumoBot: {response}")
+            st.write(f"PneumoBot: {gpt_chatbot(user_input)}")
