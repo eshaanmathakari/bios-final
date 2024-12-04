@@ -92,8 +92,6 @@ def start_retraining():
 # Tabs for the app
 tab1, tab2, tab3 = st.tabs(["Home", "Results", "Chatbot"])
 
-# comment
-
 # Tab 1: Home
 with tab1:
     st.markdown('<h1 style="color:black;">Pneumonia Detection</h1>', unsafe_allow_html=True)
@@ -159,7 +157,7 @@ with tab2:
         })
         st.bar_chart(confidence_df.set_index('Class'))
     else:
-        st.write("Please upload an image to see prediction results.")
+        st.markdown('<p style="color:black;">Please upload an image to see prediction results.</p>', unsafe_allow_html=True)
 
 # Tab 3: Chatbot
 def chatbot_response(user_input):
@@ -188,6 +186,6 @@ with tab3:
     user_input = st.text_input("Ask a question:")
     if user_input:
         if chatbot_type == "FAQ Bot":
-            st.write(f"PneumoBot: {chatbot_response(user_input)}")
+            st.markdown(f"<p style='color:black;'>PneumoBot: {chatbot_response(user_input)}</p>", unsafe_allow_html=True)
         else:
-            st.write(f"PneumoBot: {gpt_chatbot(user_input)}")
+            st.markdown(f"<p style='color:black;'>PneumoBot: {gpt_chatbot(user_input)}</p>", unsafe_allow_html=True)
