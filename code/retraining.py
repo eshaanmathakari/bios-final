@@ -7,13 +7,13 @@ import random
 
 # Constants
 IMG_HEIGHT, IMG_WIDTH = 224, 224
-BATCH_SIZE = 16  # Adjusted for small datasets
+BATCH_SIZE = 2  # Adjusted for small datasets
 CLASS_LABELS = ['Normal', 'Pneumonia-Bacterial', 'Pneumonia-Viral', 'COVID-19']
 FEEDBACK_DIR = 'feedback_data'
 MODEL_PATH = 'pneumonia_classifier_final.keras'
 UPDATED_MODEL_PATH = 'pneumonia_classifier_updated.keras'
 TRAIN_DIR = 'train_data'  # Directory containing the original training data
-RETRAIN_THRESHOLD = 5  # Set to 5 as per your requirement
+RETRAIN_THRESHOLD = 5  # As per your requirement
 SUBSET_SIZE_PER_CLASS = 100  # Number of images per class from the old data to use
 
 def count_feedback_images():
@@ -92,9 +92,10 @@ def retrain_model():
         zoom_range=0.2,
         horizontal_flip=True,
         fill_mode='nearest',
-        validation_split=0.2  # 20% of data for validation
+        validation_split=0.2  # Keep as is
     )
 
+    # Create training generator
     train_generator = datagen.flow_from_directory(
         AUGMENTED_TRAIN_DIR,
         target_size=(IMG_HEIGHT, IMG_WIDTH),
@@ -104,6 +105,7 @@ def retrain_model():
         shuffle=True
     )
 
+    # Create validation generator
     validation_generator = datagen.flow_from_directory(
         AUGMENTED_TRAIN_DIR,
         target_size=(IMG_HEIGHT, IMG_WIDTH),
@@ -112,6 +114,13 @@ def retrain_model():
         subset='validation',
         shuffle=True
     )
+
+    # Check if validation data is available
+    if validation_generator.samples == 0:
+        print("No validation data available. Proceeding without validation.")
+        validation_data = None
+    else:
+        validation_data = validation_generator
 
     # Load the existing model
     try:
@@ -157,12 +166,19 @@ def retrain_model():
 
     # Retrain the model
     epochs = 5  # Adjust as needed
-    history = model.fit(
-        train_generator,
-        validation_data=validation_generator,
-        epochs=epochs,
-        callbacks=callbacks_list
-    )
+    if validation_data:
+        history = model.fit(
+            train_generator,
+            validation_data=validation_data,
+            epochs=epochs,
+            callbacks=callbacks_list
+        )
+    else:
+        history = model.fit(
+            train_generator,
+            epochs=epochs,
+            callbacks=callbacks_list
+        )
 
     # Save the updated model
     model.save(UPDATED_MODEL_PATH)
