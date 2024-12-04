@@ -1,0 +1,309 @@
+---
+title: "Bios eda"
+format: html
+editor: visual
+---
+
+#Downloading and loading necessary packages and libraries
+```{r installing_packages}
+#install.packages("ggplot2")
+#install.packages("dplyr")
+#install.packages("magick")
+#install.packages("shiny")
+```
+
+```{r loading_libraries}
+library(ggplot2)
+library(dplyr)
+library(magick)
+library(shiny)
+```
+
+
+```{r data_path}
+
+# Setting a path for the dataset
+pneumonia_datapath <- "/Users/tanyageorge/Documents/GitHub/bios-final/Curated X-Ray Dataset"
+
+# Verify if the path exists
+print(pneumonia_datapath)
+dir.exists(pneumonia_datapath)
+
+```
+
+```{r subdirectories_list}
+
+# Print out the subdirectories
+pneum_categories <- list.dirs(pneumonia_datapath, recursive = FALSE, full.names = FALSE)
+print(pneum_categories)
+
+```
+
+
+
+```{r piechart_of_classsdistribution}
+
+# Define colors for each category
+piechart_colors <- c("COVID-19" = "darkred",
+                     "Normal" = "darkgreen",
+                     "Bacterial" = "darkorange3",
+                     "Viral" = "#4B0082")
+
+# Plot the pie chart
+ggplot(image_counts_df, aes(x = "", y = Count, fill = Category)) +
+  geom_bar(stat = "identity", color = "white", width = 1) + 
+  coord_polar(theta = "y") +  
+  labs(title = "Distribution of Categories") +
+  geom_text(aes(y = y_pos, label = paste0(Percentage, "%")), size = 5, color = "white") +
+  geom_segment(aes(y = y_pos, yend = y_pos, x = 1, xend = 1.5), size = 0.8, color = "black") +
+  geom_label(aes(y = y_pos, x = 1.7, label = Category), size = 5, fill = "white", label.size = 0.2) +
+  scale_fill_manual(values = piechart_colors) +
+  theme_void() +
+  theme(
+    legend.position = "none", 
+    plot.title = element_text(size = 20, face = "bold", hjust = 0.5)
+  ) 
+  
+```
+
+
+```{r}
+resolutions <- sapply(pneum_categories, function(category) {
+  files <- list.files(file.path(pneumonia_datapath, category), full.names = TRUE)
+  unique_dims <- unique(sapply(files[1:10], function(file) {
+    img <- image_read(file)
+    paste(dim(image_data(img))[1:2], collapse = "x")
+  }))
+  data.frame(Category = category, Resolutions = paste(unique_dims, collapse = ", "))
+})
+print(resolutions)
+
+```
+
+
+
+```{r}
+
+# Layout for a 2x2 grid
+par(mfrow = c(2, 2), mar = c(2, 2, 2, 2), oma = c(0, 0, 4, 0))  # Outer margin space for the title
+
+# Adding Labels
+pneumonia_labels <- c("COVID-19", "Normal", "Bacterial", "Viral")
+
+# Iterate over categories and add labels to the images
+for (i in seq_along(pneum_categories)) {
+  category <- pneum_categories[i]
+  sample_image_path <- list.files(file.path(pneumonia_datapath, category), full.names = TRUE)[1]
+  
+  # Read and resize the image
+  img <- image_read(sample_image_path)
+  img_resized <- image_resize(img, "1200x1200") 
+  
+  # Add a label
+  img_labeled <- image_annotate(
+    img_resized, 
+    text = pneumonia_labels[i], 
+    size = 100, gravity = "south", color = "white", boxcolor = "black"
+  )
+  
+  # Plot the labeled image
+  plot(img_labeled, main = pneumonia_labels[i])
+}
+
+# Add heading in bold
+mtext("Sample X-Rays of Different Diagnoses", side = 3, line = 1, outer = TRUE, font = 2, cex = 1.5)
+
+
+```
+
+
+
+```{r}
+
+# Function to preprocess images and convert to grayscale vectors
+get_image_vector <- function(image_path) {
+  img <- image_read(image_path)
+  img_gray <- image_convert(img, colorspace = "gray")  # Convert to grayscale
+  img_resized <- image_resize(img_gray, "100x100")     # Resize to 100x100 for uniformity
+  as.numeric(image_data(img_resized))                  # Flatten to a vector
+}
+
+# Select a subset of images for analysis (e.g., 5 from each category)
+sample_images <- unlist(sapply(pneum_categories, function(category) {
+  list.files(file.path(pneumonia_datapath, category), full.names = TRUE)[1:5]  # 5 images per category
+}))
+
+# Get pixel vectors for all sample images
+image_vectors <- sapply(sample_images, get_image_vector)
+
+```
+
+
+```{r}
+get_image_vector <- function(image_path) {
+  img <- image_read(image_path)
+  img_gray <- image_convert(img, colorspace = "gray")  # Convert to grayscale
+  img_resized <- image_resize(img_gray, "100x100!")    # Ensure exact resizing (force 100x100)
+  as.numeric(image_data(img_resized))                  # Flatten into a vector
+}
+
+
+```
+
+```{r}
+# Check vector lengths for a subset of images
+vector_lengths <- sapply(sample_images, function(image_path) {
+  length(get_image_vector(image_path))
+})
+print(vector_lengths)
+
+```
+
+```{r}
+# Get pixel vectors for all sample images
+image_vectors <- do.call(cbind, lapply(sample_images, get_image_vector))
+
+# Ensure the resulting structure is a matrix
+image_vectors <- as.matrix(image_vectors)
+print(dim(image_vectors))  # Should show: (number of pixels, number of images)
+
+```
+
+```{r}
+# Compute the correlation matrix
+cor_matrix <- cor(image_vectors)
+
+```
+
+
+
+```{r}
+# Example category mapping for your images
+pneumonia_labels <- c("COVID-19", "Normal", "Bacterial", "Viral")
+sample_images <- unlist(sapply(pneumonia_labels, function(label) {
+  list.files(file.path(pneumonia_datapath, label), full.names = TRUE)[1:5]  # Select 5 images per label
+}))
+
+# Create labels corresponding to the images
+image_labels <- rep(pneumonia_labels, each = 5)  # Adjust the repetition based on the sample size
+
+# Convert the correlation matrix to a data frame
+cor_df <- as.data.frame(as.table(cor_matrix))
+colnames(cor_df) <- c("Image1", "Image2", "Similarity")
+
+# Update labels for ggplot
+cor_df$Image1 <- factor(cor_df$Image1, labels = image_labels)
+cor_df$Image2 <- factor(cor_df$Image2, labels = image_labels)
+
+# Plot the heatmap with category labels
+library(ggplot2)
+ggplot(cor_df, aes(x = Image1, y = Image2, fill = Similarity)) +
+  geom_tile() +
+  scale_fill_gradient2(low = "darkgreen", high = "red", mid = "white", midpoint = 0, 
+                       limit = c(-1, 1), name = "Correlation") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1), ,  # Rotate x-axis labels
+    plot.title = element_text(size = 20, face = "bold", hjust = 0.5)  # Make title bold, bigger, and centered
+  ) +
+  labs(title = "Heatmap of Similarities between the X-Rays:", x = "Pneumonia Classification", y = "Pneumonia Classification")
+
+```
+
+```{r}
+# Convert the correlation matrix to a data frame for ggplot
+cor_df <- as.data.frame(as.table(cor_matrix))
+colnames(cor_df) <- c("Image1", "Image2", "Similarity")
+
+# Plot the heatmap
+library(ggplot2)
+ggplot(cor_df, aes(x = Image1, y = Image2, fill = Similarity)) +
+  geom_tile() +
+  scale_fill_gradient2(low = "blue", high = "red", mid = "white", midpoint = 0, 
+                       limit = c(-1, 1), name = "Correlation") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+  labs(title = "Heatmap of Image Similarities", x = "Image", y = "Image")
+```
+
+
+
+```{r}
+
+#shiny app
+
+# Load necessary libraries
+library(shiny)
+library(magick)
+library(ggplot2)
+
+ui <- fluidPage(
+  titlePanel("Interactive Dashboard: Curated X-Ray Dataset"),
+  
+  sidebarLayout(
+    sidebarPanel(
+      selectInput("category", "Select a Category:", 
+                  choices = c("COVID-19", "Normal", "Bacterial", "Viral")),  # Dropdown menu
+      sliderInput("num_images", "Number of Images to Display:", 
+                  min = 1, max = 10, value = 5),  # Slider for selecting number of images
+      actionButton("update", "Update Images")  # Button to update images
+    ),
+    
+    mainPanel(
+      h3("Sample Images"),
+      uiOutput("image_display"),  # Dynamic display of images
+      
+      h3("Category Distribution"),
+      plotOutput("bar_chart")  # Bar chart showing class distribution
+    )
+  )
+)
+
+
+
+```
+
+
+```{r}
+
+server <- function(input, output, session) {
+  pneumonia_datapath <- "/Users/tanyageorge/Documents/GitHub/bios-final/Curated X-Ray Dataset"  # Update this with your dataset path
+  
+  # Reactive data for image paths
+  image_paths <- reactive({
+    files <- list.files(file.path(pneumonia_datapath, input$category), full.names = TRUE)
+    validate(
+      need(length(files) > 0, "No images found in the selected category!")
+    )
+    files[1:input$num_images]  # Limit to the number selected by the slider
+  })
+  
+  # Display Sample Images
+  output$image_display <- renderUI({
+    paths <- image_paths()
+    tagList(lapply(paths, function(img_path) {
+      tags$img(src = img_path, style = "height: 300px; margin: 10px;")  # Adjust size and spacing
+    }))
+  })
+  
+  # Bar Chart for Category Distribution
+  output$bar_chart <- renderPlot({
+    pneumonia_labels <- c("COVID-19", "Normal", "Bacterial", "Viral")
+    image_counts <- sapply(pneumonia_labels, function(label) {
+      length(list.files(file.path(pneumonia_datapath, label), full.names = TRUE))
+    })
+    image_counts_df <- data.frame(Category = pneumonia_labels, Count = image_counts)
+    
+    ggplot(image_counts_df, aes(x = Category, y = Count, fill = Category)) +
+      geom_bar(stat = "identity") +
+      theme_minimal() +
+      labs(title = "Category Distribution", x = "Category", y = "Number of Images") +
+      theme(legend.position = "none")
+  })
+}
+
+
+shinyApp(ui = ui, server = server)
+
+
+```
+
