@@ -119,13 +119,13 @@ with tab1:
         confidence_scores = predictions[0]
 
         # Display the image and results
-        st.image(image, caption='Uploaded Image', use_column_width=True)
-        st.write(f"**Predicted Class:** {predicted_label}")
+        st.image(image, caption='<span style="color:black;">Uploaded Image</span>', use_column_width=True, unsafe_allow_html=True)
+        st.markdown(f'<p style="color:black;">**Predicted Class:** {predicted_label}</p>', unsafe_allow_html=True)
         for idx, score in enumerate(confidence_scores):
-            st.write(f"{CLASS_LABELS[idx]}: {score:.4f}")
+            st.markdown(f'<p style="color:black;">{CLASS_LABELS[idx]}: {score:.4f}</p>', unsafe_allow_html=True)
 
         # Feedback Section
-        st.write("### Is the prediction incorrect? Please provide the correct label:")
+        st.markdown('<p style="color:black;">### Is the prediction incorrect? Please provide the correct label:</p>', unsafe_allow_html=True)
         correct_label = st.selectbox("Select the correct label:", CLASS_LABELS)
         submit_feedback = st.button("Submit Feedback")
 
@@ -136,16 +136,16 @@ with tab1:
             os.makedirs(feedback_class_dir, exist_ok=True)
             feedback_path = os.path.join(feedback_class_dir, f"{timestamp}_{uploaded_file.name}")
             image.save(feedback_path)
-            st.write("Feedback submitted successfully.")
+            st.markdown('<p style="color:black;">Feedback submitted successfully.</p>', unsafe_allow_html=True)
 
             # Check feedback count
             feedback_count = count_feedback_images()
-            st.write(f"Total feedback entries: {feedback_count}")
+            st.markdown(f'<p style="color:black;">Total feedback entries: {feedback_count}</p>', unsafe_allow_html=True)
 
             if feedback_count >= RETRAIN_THRESHOLD:
                 start_retraining()
             else:
-                st.write(f"Need at least {RETRAIN_THRESHOLD} feedback images to retrain the model.")
+                st.markdown(f'<p style="color:black;">Need at least {RETRAIN_THRESHOLD} feedback images to retrain the model.</p>', unsafe_allow_html=True)
 
 # Tab 2: Results
 with tab2:
