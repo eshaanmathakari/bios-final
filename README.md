@@ -22,4 +22,50 @@
 - *Interactive Chatbot*: Integrated chatbot (PneumoBot) to answer user queries using both an FAQ and GPT-3 powered responses.
 - *Visualizations*: Provides visual insights like Grad-CAM heatmaps (if implemented), confusion matrices, and ROC curves.
 - *Customizable Theme*: The app has a professional and user-friendly interface with customizable themes.
+## *Installation*
+### *Clone the Repository*
+```bash
+git clone https://github.com/yourusername/pneumoscan.git
+cd pneumoscan
+```
 
+```bash
+conda create -n pneumoscan_env python=3.8
+conda activate pneumoscan_env
+```
+
+```bash
+python -m venv pneumoscan_env
+source pneumoscan_env/bin/activate  # On Windows use pneumoscan_env\Scripts\activate
+```
+
+### *Create a Virtual Environment*
+
+Using Anaconda:
+
+```bash
+conda create -n pneumoscan_env python=3.8
+conda activate pneumoscan_env
+```
+
+Or using venv:
+
+```bash
+python -m venv pneumoscan_env
+source pneumoscan_env/bin/activate  # On Windows use pneumoscan_env\Scripts\activate
+```
+### Install Dependencies
+
+```bash
+Copy code
+pip install -r requirements.txt
+```
+### Set Up OpenAI API Key
+
+```bash
+set OPENAI_API_KEY='your-openai-api-key-here'
+```
+### Running the App
+```bash
+streamlit run app.py
+```
