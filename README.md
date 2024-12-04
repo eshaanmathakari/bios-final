@@ -124,5 +124,10 @@ git push origin feature/YourFeature
 ## License
 This project is licensed under the MIT License.
 
+### Disclaimer:
+This application is intended for educational purposes and should not be used as a substitute for professional medical advice. Always consult a healthcare professional for medical diagnoses and treatment.
+
+
+
 
 
