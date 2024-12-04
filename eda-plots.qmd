@@ -209,23 +209,6 @@ ggplot(cor_df, aes(x = Image1, y = Image2, fill = Similarity)) +
 
 ```
 
-```{r}
-# Convert the correlation matrix to a data frame for ggplot
-cor_df <- as.data.frame(as.table(cor_matrix))
-colnames(cor_df) <- c("Image1", "Image2", "Similarity")
-
-# Plot the heatmap
-library(ggplot2)
-ggplot(cor_df, aes(x = Image1, y = Image2, fill = Similarity)) +
-  geom_tile() +
-  scale_fill_gradient2(low = "blue", high = "red", mid = "white", midpoint = 0, 
-                       limit = c(-1, 1), name = "Correlation") +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
-  labs(title = "Heatmap of Image Similarities", x = "Image", y = "Image")
-```
-
-
 
 ```{r}
 
