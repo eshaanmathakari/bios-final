@@ -92,6 +92,8 @@ def start_retraining():
 # Tabs for the app
 tab1, tab2, tab3 = st.tabs(["Home", "Results", "Chatbot"])
 
+# comment
+
 # Tab 1: Home
 with tab1:
     st.markdown('<h1 style="color:black;">Pneumonia Detection</h1>', unsafe_allow_html=True)
