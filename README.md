@@ -21,7 +21,8 @@
 - *Interactive Chatbot*: Integrated chatbot (PneumoBot) to answer user queries using both an FAQ and GPT-3 powered responses.
 - *Visualizations*: Provides visual insights like Grad-CAM heatmaps (if implemented), confusion matrices, and ROC curves.
 - *Customizable Theme*: The app has a professional and user-friendly interface with customizable themes.'
-[images/confusion-matrix.png]
+![Confusion Matrix](images/confusion-matrix.png)
+
 
 ## *Installation*
 ### *Clone the Repository*
