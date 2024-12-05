@@ -19,28 +19,37 @@ st.cache_data.clear()
 # Set page configuration
 st.set_page_config(page_title="PneumoScan", page_icon="🩺")
 
-# **Add Global CSS to Set Text Color to Black**
-# st.markdown(
-#     """
-#     <style>
-#     html, body, [class*="css"]  {
-#         color: black !important;
-#     }
-#     </style>
-#     """,
-#     unsafe_allow_html=True
-# )
-
+# Add Global CSS for Black Text and Styling
 st.markdown("""
     <style>
+    /* General text color for all elements */
     .stApp {
         color: black !important;
     }
-    .stMarkdown, .stText, .stHeader {
+
+    /* Dropdown box (default state) */
+    .stSelectbox > div:first-child {
+        background-color: white !important;
+        color: black !important;
+        border: 1px solid black !important;
+        font-weight: bold !important;
+    }
+
+    /* Dropdown options (expanded state) */
+    div[data-baseweb="menu"] {
+        background-color: white !important;
+        color: black !important;
+        border: 1px solid black !important;
+    }
+
+    /* Dropdown option hover state */
+    div[data-baseweb="menu"] div:hover {
+        background-color: lightgray !important;
         color: black !important;
     }
     </style>
     """, unsafe_allow_html=True)
+
 
 
 # Constants
@@ -124,7 +133,23 @@ with tab1:
     # Upload Section
     uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"])
     if uploaded_file:
-        # ... (rest of the code remains the same)
+        # Save uploaded file
+        temp_dir = 'temp_uploads'
+        os.makedirs(temp_dir, exist_ok=True)
+        temp_path = os.path.join(temp_dir, uploaded_file.name)
+        with open(temp_path, 'wb') as f:
+            f.write(uploaded_file.getbuffer())
+        
+        # Load and preprocess the image
+        image = Image.open(temp_path).convert('RGB').resize((IMG_WIDTH, IMG_HEIGHT))
+        img_array = np.array(image) / 255.0
+        img_array = np.expand_dims(img_array, axis=0)
+
+        # Predict using the model
+        predictions = model.predict(img_array)
+        predicted_class = np.argmax(predictions, axis=1)
+        predicted_label = CLASS_LABELS[predicted_class[0]]
+        confidence_scores = predictions[0]
 
         # Display the image and results
         st.image(image, caption='Uploaded Image', use_column_width=True)
@@ -138,8 +163,16 @@ with tab1:
         submit_feedback = st.button("Submit Feedback")
 
         if submit_feedback:
-            # ... (rest of the code remains the same)
+            # Save feedback
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            feedback_class_dir = os.path.join(FEEDBACK_DIR, correct_label)
+            os.makedirs(feedback_class_dir, exist_ok=True)
+            feedback_path = os.path.join(feedback_class_dir, f"{timestamp}_{uploaded_file.name}")
+            image.save(feedback_path)
             st.markdown('<p style="color: black;">Feedback submitted successfully.</p>', unsafe_allow_html=True)
+
+            # Check feedback count
+            feedback_count = count_feedback_images()
             st.markdown(f'<p style="color: black;">Total feedback entries: {feedback_count}</p>', unsafe_allow_html=True)
 
             if feedback_count >= RETRAIN_THRESHOLD:

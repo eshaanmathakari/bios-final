@@ -17,6 +17,7 @@ RETRAIN_THRESHOLD = 5  # As per your requirement
 SUBSET_SIZE_PER_CLASS = 100  # Number of images per class from the old data to use
 
 def count_feedback_images():
+    """Count total feedback images across all classes."""
     total = 0
     for cls in CLASS_LABELS:
         class_dir = os.path.join(FEEDBACK_DIR, cls)
@@ -25,14 +26,16 @@ def count_feedback_images():
                 file for file in os.listdir(class_dir)
                 if file.lower().endswith(('.jpg', '.jpeg', '.png'))
             ])
+    print(f"Total feedback images found: {total}")
     return total
 
 def retrain_model():
-    print("Starting retraining with feedback data...")
+    """Retrain the model with feedback data and a subset of original data."""
+    print("=== Starting Retraining Process ===")
 
     # Ensure feedback data exists
     if not os.path.exists(FEEDBACK_DIR):
-        print("No feedback data found. Retraining aborted.")
+        print("[ERROR] No feedback data found. Retraining aborted.")
         return
 
     # Ensure feedback directories for all classes exist
@@ -42,10 +45,8 @@ def retrain_model():
 
     # Count total feedback images
     total_feedback_images = count_feedback_images()
-    print(f"Total feedback images: {total_feedback_images}")
-
     if total_feedback_images < RETRAIN_THRESHOLD:
-        print(f"Not enough feedback data for retraining (Threshold: {RETRAIN_THRESHOLD}). Retraining aborted.")
+        print(f"[INFO] Not enough feedback data for retraining (Threshold: {RETRAIN_THRESHOLD}). Retraining aborted.")
         return
 
     # Prepare augmented training directory
@@ -54,7 +55,7 @@ def retrain_model():
         shutil.rmtree(AUGMENTED_TRAIN_DIR)
     os.makedirs(AUGMENTED_TRAIN_DIR, exist_ok=True)
 
-    # Copy feedback data into augmented training directory
+    # Copy feedback data and subset of old training data
     for cls in CLASS_LABELS:
         feedback_class_dir = os.path.join(FEEDBACK_DIR, cls)
         augmented_class_dir = os.path.join(AUGMENTED_TRAIN_DIR, cls)
@@ -66,7 +67,7 @@ def retrain_model():
                 src_path = os.path.join(feedback_class_dir, img_name)
                 dest_path = os.path.join(augmented_class_dir, img_name)
                 shutil.copy(src_path, dest_path)
-            print(f"Feedback data for class '{cls}' added to augmented training data.")
+            print(f"[INFO] Feedback data for class '{cls}' added to augmented training data.")
 
         # Add a subset of old training data
         original_class_dir = os.path.join(TRAIN_DIR, cls)
@@ -80,7 +81,9 @@ def retrain_model():
                 src_path = os.path.join(original_class_dir, img_name)
                 dest_path = os.path.join(augmented_class_dir, img_name)
                 shutil.copy(src_path, dest_path)
-            print(f"Subset of original data for class '{cls}' added to augmented training data.")
+            print(f"[INFO] Subset of original data for class '{cls}' added to augmented training data.")
+
+    print("=== Data Preparation Completed ===")
 
     # Data augmentation with validation split
     datagen = ImageDataGenerator(
@@ -92,7 +95,7 @@ def retrain_model():
         zoom_range=0.2,
         horizontal_flip=True,
         fill_mode='nearest',
-        validation_split=0.2  # Keep as is
+        validation_split=0.2
     )
 
     # Create training generator
@@ -117,7 +120,7 @@ def retrain_model():
 
     # Check if validation data is available
     if validation_generator.samples == 0:
-        print("No validation data available. Proceeding without validation.")
+        print("[WARNING] No validation data available. Proceeding without validation.")
         validation_data = None
     else:
         validation_data = validation_generator
@@ -125,9 +128,9 @@ def retrain_model():
     # Load the existing model
     try:
         model = tf.keras.models.load_model(MODEL_PATH)
-        print("Model loaded successfully.")
+        print("[INFO] Model loaded successfully.")
     except Exception as e:
-        print(f"Error loading model: {e}")
+        print(f"[ERROR] Error loading model: {e}")
         return
 
     # Unfreeze the last few layers for fine-tuning
@@ -165,7 +168,8 @@ def retrain_model():
     callbacks_list = [checkpoint, earlystop, reduce_lr]
 
     # Retrain the model
-    epochs = 5  # Adjust as needed
+    print("=== Starting Model Training ===")
+    epochs = 5
     if validation_data:
         history = model.fit(
             train_generator,
@@ -182,12 +186,13 @@ def retrain_model():
 
     # Save the updated model
     model.save(UPDATED_MODEL_PATH)
-    print(f"Retraining completed. Updated model saved as '{UPDATED_MODEL_PATH}'.")
+    print(f"[SUCCESS] Retraining completed. Updated model saved as '{UPDATED_MODEL_PATH}'.")
 
     # Clear feedback data after retraining
     shutil.rmtree(FEEDBACK_DIR)
     os.makedirs(FEEDBACK_DIR, exist_ok=True)
-    print("Feedback data cleared after retraining.")
+    print("[INFO] Feedback data cleared after retraining.")
 
     # Clean up augmented training data
     shutil.rmtree(AUGMENTED_TRAIN_DIR)
+    print("[INFO] Augmented training data cleared.")
