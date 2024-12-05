@@ -1,6 +1,0 @@
-streamlit==1.40.2  # Use the latest verified Streamlit version
-tensorflow==2.16.0  # Update to a compatible version
-pandas==1.5.3  # Example: Add required dependencies
-numpy==1.24.3
-openai==0.27.8
-pillow==9.5.0

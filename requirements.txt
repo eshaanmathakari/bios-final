@@ -1,7 +1,6 @@
-streamlit==1.25.0
-tensorflow==2.13.0
-pillow==10.0.0
-numpy==1.23.5
-pandas==1.5.3
-scikit-learn==1.2.2
+streamlit==1.40.2  # Use the latest verified Streamlit version
+tensorflow==2.16.0  # Update to a compatible version
+pandas==1.5.3  # Example: Add required dependencies
+numpy==1.24.3
 openai==0.27.8
+pillow==9.5.0
