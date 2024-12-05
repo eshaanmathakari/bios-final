@@ -195,7 +195,7 @@ with tab2:
 # Tab 3: Chatbot
 with tab3:
     st.markdown('<h2 style="color: black;">Chat with PneumoBot</h2>', unsafe_allow_html=True)
-    chatbot_type = st.radio("Choose a chatbot:", ("FAQ Bot", "GPT-3 Bot"))
+    chatbot_type = st.radio("Choose a chatbot:", ("FAQ Bot", "GPT-4o Bot"))
     user_input = st.text_input("Ask a question:")
     if user_input:
         if chatbot_type == "FAQ Bot":
