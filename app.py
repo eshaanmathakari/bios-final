@@ -192,6 +192,26 @@ with tab2:
     else:
         st.markdown('<p style="color: black;">Please upload an image to see prediction results.</p>', unsafe_allow_html=True)
 
+
+def chatbot_response(user_input):
+    faq = {
+        'What does my result mean?': 'Your result indicates the model\'s prediction based on the uploaded image.',
+        'How accurate is the model?': 'The model has an accuracy of XX% on the test dataset.',
+        'What should I do next?': 'Please consult a medical professional for further advice.',
+    }
+    return faq.get(user_input.strip(), 'I\'m sorry, I do not have an answer to that question.')
+
+def gpt_chatbot(user_input):
+    try:
+        response = openai.Completion.create(
+            engine='text-davinci-003',
+            prompt=f"You are a helpful assistant specialized in medical imaging. {user_input}",
+            max_tokens=150,
+            temperature=0.7
+        )
+        return response.choices[0].text.strip()
+    except Exception:
+        return "Sorry, I am unable to process your request at the moment."
 # Tab 3: Chatbot
 with tab3:
     st.markdown('<h2 style="color: black;">Chat with PneumoBot</h2>', unsafe_allow_html=True)
