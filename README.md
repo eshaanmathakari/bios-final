@@ -4,13 +4,12 @@
 - [Features](#features)
 - [Installation](#installation)
 - [Usage](#usage)
-- [Project Structure](#project-structure)
 - [Model Architecture](#model-architecture)
 - [Retraining Mechanism](#retraining-mechanism)
 - [Chatbot Integration](#chatbot-integration)
 - [Contributing](#contributing)
 - [License](#license)
-- [Contact](#contact)
+
 
 ## *Features*
 
